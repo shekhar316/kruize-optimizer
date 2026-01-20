@@ -87,13 +87,16 @@ public class ProfileScannerService {
     private ProfileScanResult fetchReferenceIndex() {
         if (isLocal()) {
             try {
-                Path path = Path.of("configs", "config-master-index.json");
-                if (Files.exists(path)) {
-                    ObjectMapper mapper = new ObjectMapper();
-                    return mapper.readValue(path.toFile(), ProfileScanResult.class);
-                } else {
-                    LOG.errorf("Local reference index not found: %s", path.toAbsolutePath());
-                    return null;
+                String resourcePath = "configs/config-master-index.json";
+                LOG.infof("Reading local reference index from classpath: %s", resourcePath);
+                try (var inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+                    if (inputStream != null) {
+                        ObjectMapper mapper = new ObjectMapper();
+                        return mapper.readValue(inputStream, ProfileScanResult.class);
+                    } else {
+                        LOG.errorf("Local reference index resource not found: %s", resourcePath);
+                        return null;
+                    }
                 }
             } catch (Exception e) {
                 LOG.error("Local Index Read Error: " + e.getMessage());

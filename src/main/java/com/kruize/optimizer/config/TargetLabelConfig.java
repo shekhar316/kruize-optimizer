@@ -18,6 +18,9 @@ public class TargetLabelConfig {
     @ConfigProperty(name = "kruize.target.labels.json")
     String targetLabelsJson;
 
+    @ConfigProperty(name = "kruize.target.labels.limit", defaultValue = "5")
+    int labelLimit;
+
     private Map<String, String> targetLabels = new HashMap<>();
 
     @PostConstruct
@@ -36,7 +39,8 @@ public class TargetLabelConfig {
                 });
             } else if (rootNode.isArray()) {
                 // if array of labels is attached, then format the key value pairs
-                List<String> labelList = mapper.convertValue(rootNode, new TypeReference<List<String>>() {});
+                List<String> labelList = mapper.convertValue(rootNode, new TypeReference<List<String>>() {
+                });
                 for (String label : labelList) {
                     String[] parts = label.split("=", 2);
                     if (parts.length == 2) {
@@ -54,6 +58,21 @@ public class TargetLabelConfig {
             if (targetLabels.isEmpty()) {
                 targetLabels.put("kruize/autotune", "enabled");
             }
+        }
+
+        // Apply Limit
+        if (targetLabels.size() > labelLimit) {
+            LOG.warnf("Label count %d exceeds limit %d. Truncating to first %d.", targetLabels.size(), labelLimit,
+                    labelLimit);
+            Map<String, String> limited = new LinkedHashMap<>();
+            int count = 0;
+            for (Map.Entry<String, String> entry : targetLabels.entrySet()) {
+                if (count >= labelLimit)
+                    break;
+                limited.put(entry.getKey(), entry.getValue());
+                count++;
+            }
+            targetLabels = limited;
         }
 
         LOG.infof("Loaded Target Labels: %s", targetLabels);

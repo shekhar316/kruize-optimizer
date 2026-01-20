@@ -161,9 +161,20 @@ public class ProfileInstallerService {
             } else {
                 String installedVersion = normalizeVersion(installedMap.get(req.getName()));
                 if (!installedVersion.equals(reqVersion)) {
-                    String updateMsg = String.format("Version mismatch for %s profile: %s. Installed: %s, Required: %s",
+                    String updateMsg = String.format(
+                            "Version mismatch for %s profile: %s. Installed: '%s', Required: '%s'",
                             type, req.getName(), installedVersion, reqVersion);
                     LOG.info(updateMsg);
+
+                    // Populate Pending Update
+                    if (result.getPendingUpdates() == null)
+                        result.setPendingUpdates(new ArrayList<>());
+
+                    // Location: folderName/profileName/version
+                    String location = String.format("%s/%s/%s", folderName, req.getName(), reqVersion);
+
+                    result.addPendingUpdate(new ProfileScanResult.PendingUpdate(
+                            req.getName(), type, installedVersion, reqVersion, location));
 
                     // Do NOT auto-update on version mismatch, but alert
                     if (result.getAlerts() == null)
@@ -190,15 +201,16 @@ public class ProfileInstallerService {
             String content = null;
 
             if (isLocal()) {
-                // Local structure: configs/version/folderName/fileName
-                // Assuming 'configs' is in the current working directory or relative to project
-                // root
-                Path path = Path.of("configs", version, folderName, fileName);
-                LOG.infof("Reading local %s definition from: %s", type, path.toAbsolutePath());
-                if (Files.exists(path)) {
-                    content = Files.readString(path);
-                } else {
-                    LOG.errorf("Local file not found: %s", path.toAbsolutePath());
+                // Local structure: classpath:configs/version/folderName/fileName
+                String resourcePath = String.format("configs/%s/%s/%s", version, folderName, fileName);
+                LOG.infof("Reading local %s definition from classpath: %s", type, resourcePath);
+
+                try (var inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+                    if (inputStream != null) {
+                        content = new String(inputStream.readAllBytes());
+                    } else {
+                        LOG.errorf("Local resource not found: %s", resourcePath);
+                    }
                 }
             } else {
                 // Remote structure: base/version/folderName/fileName
@@ -278,13 +290,16 @@ public class ProfileInstallerService {
     private ProfileScanResult fetchReferenceIndex() {
         if (isLocal()) {
             try {
-                // Local index: configs/config-master-index.json
-                Path path = Path.of("configs", "config-master-index.json");
-                LOG.infof("Reading local reference index from: %s", path.toAbsolutePath());
-                if (Files.exists(path)) {
-                    return objectMapper.readValue(path.toFile(), ProfileScanResult.class);
-                } else {
-                    LOG.errorf("Local reference index not found: %s", path.toAbsolutePath());
+                // Local index: classpath:configs/config-master-index.json
+                String resourcePath = "configs/config-master-index.json";
+                LOG.infof("Reading local reference index from classpath: %s", resourcePath);
+
+                try (var inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+                    if (inputStream != null) {
+                        return objectMapper.readValue(inputStream, ProfileScanResult.class);
+                    } else {
+                        LOG.errorf("Local reference index resource not found: %s", resourcePath);
+                    }
                 }
             } catch (IOException e) {
                 LOG.error("Local Index Read Error: " + e.getMessage());

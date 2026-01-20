@@ -14,6 +14,7 @@ public class OptimizerConstants {
         public static final String LIST_METADATA_PROFILE_ENDPOINT = "/listMetadataProfiles";
         public static final String LIST_METRIC_PROFILE_ENDPOINT = "/listMetricProfiles";
         public static final String LIST_LAYERS_ENDPOINT = "/listLayers";
+        public static final String LIST_EXPERIMENTS_ENDPOINT = "/listExperiments";
 
         // create APIs
         public static final String CREATE_METADATA_PROFILE_ENDPOINT = "/createMetadataProfile";
@@ -26,6 +27,6 @@ public class OptimizerConstants {
 
         // bulk APIs
         public static final String BULK_ENDPOINT = "/bulk";
-        public static final String JOB_ID = "/job_id";
+        public static final String JOB_ID = "job_id";
     }
 }

@@ -9,13 +9,13 @@ public class ProfileScanResult {
     private List<ParsedProfile> metadataProfiles = new ArrayList<>();
 
     @JsonProperty("metric_profiles")
-    private List<ParsedProfile> metricProfiles;
+    private List<ParsedProfile> metricProfiles = new ArrayList<>();
 
-    private List<ParsedProfile> layers;
+    private List<ParsedProfile> layers = new ArrayList<>();
 
-    private List<ParsedProfile> rulesets;
+    private List<ParsedProfile> rulesets = new ArrayList<>();
 
-    private List<String> alerts;
+    private List<String> alerts = new ArrayList<>();
 
     public List<ParsedProfile> getMetadataProfiles() {
         return metadataProfiles;
@@ -59,6 +59,80 @@ public class ProfileScanResult {
 
     public void addAlert(String alert) {
         this.alerts.add(alert);
+    }
+
+    public List<PendingUpdate> getPendingUpdates() {
+        return pendingUpdates;
+    }
+
+    public void setPendingUpdates(List<PendingUpdate> pendingUpdates) {
+        this.pendingUpdates = pendingUpdates;
+    }
+
+    public void addPendingUpdate(PendingUpdate update) {
+        this.pendingUpdates.add(update);
+    }
+
+    @JsonProperty("pending_updates")
+    private List<PendingUpdate> pendingUpdates = new ArrayList<>();
+
+    public static class PendingUpdate {
+        private String name;
+        private String type;
+        private String currentVersion;
+        private String targetVersion;
+        private String location; // e.g., metadata-profiles/name/version
+
+        public PendingUpdate() {
+        }
+
+        public PendingUpdate(String name, String type, String currentVersion, String targetVersion, String location) {
+            this.name = name;
+            this.type = type;
+            this.currentVersion = currentVersion;
+            this.targetVersion = targetVersion;
+            this.location = location;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public String getCurrentVersion() {
+            return currentVersion;
+        }
+
+        public void setCurrentVersion(String currentVersion) {
+            this.currentVersion = currentVersion;
+        }
+
+        public String getTargetVersion() {
+            return targetVersion;
+        }
+
+        public void setTargetVersion(String targetVersion) {
+            this.targetVersion = targetVersion;
+        }
+
+        public String getLocation() {
+            return location;
+        }
+
+        public void setLocation(String location) {
+            this.location = location;
+        }
     }
 
     public static class ParsedProfile {

@@ -58,17 +58,19 @@ public class K8sScanResult {
         private String type; // Deployment, StatefulSet, ReplicaSet
         private boolean kruizeOptimized;
         private List<ContainerInfo> containers = new ArrayList<>();
+        private java.util.Map<String, String> labels;
 
         public WorkloadInfo() {
         }
 
         public WorkloadInfo(String name, String namespace, String type, boolean kruizeOptimized,
-                List<ContainerInfo> containers) {
+                List<ContainerInfo> containers, java.util.Map<String, String> labels) {
             this.name = name;
             this.namespace = namespace;
             this.type = type;
             this.kruizeOptimized = kruizeOptimized;
             this.containers = containers;
+            this.labels = labels;
         }
 
         public String getName() {
@@ -109,6 +111,14 @@ public class K8sScanResult {
 
         public void setContainers(List<ContainerInfo> containers) {
             this.containers = containers;
+        }
+
+        public java.util.Map<String, String> getLabels() {
+            return labels;
+        }
+
+        public void setLabels(java.util.Map<String, String> labels) {
+            this.labels = labels;
         }
     }
 

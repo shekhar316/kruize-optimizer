@@ -198,6 +198,18 @@
             </div>
         </div>
 
+        <!-- Pending Updates Section -->
+        <div id="updates-container" class="mb-4" style="display:none;">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <div><i class="fa-solid fa-bell me-2"></i>Pending Profile Updates</div>
+                    <button class="btn btn-sm btn-dark" onclick="applyUpdates()">Update All</button>
+                </div>
+                <ul class="list-group list-group-flush" id="updates-list">
+                </ul>
+            </div>
+        </div>
+
         <!-- Controls -->
         <div class="mb-4 d-flex justify-content-between align-items-center">
             <div class="form-check form-switch">
@@ -205,6 +217,8 @@
                 <label class="form-check-label" for="showAllSwitch">Show All Workloads</label>
             </div>
             <div>
+                <input type="text" id="labelFilter" class="form-control d-inline-block w-auto me-2"
+                    placeholder="Filter by Label (key=value)">
                 <button class="btn btn-warning" onclick="installProfiles()"><i
                         class="fa-solid fa-wrench me-2"></i>Install Missing Profiles / Layers / RuleSets</button>
                 <button class="btn btn-primary" onclick="refreshKruizeStatus()"><i
@@ -245,6 +259,7 @@
                                     <th>Workload</th>
                                     <th>Type</th>
                                     <th>Containers</th>
+                                    <th>Labels</th>
                                     <th>Kruize Optimized?</th>
                                     <th>Action 1</th>
                                     <th>Action 2</th>
@@ -272,10 +287,41 @@
             nsTable = $('#namespacesTable').DataTable();
             wlTable = $('#workloadsTable').DataTable();
 
+            // Label Filter Event
+            $('#labelFilter').on('keyup', function () {
+                refreshWorkloads();
+            });
+
             // Initial Data Load
             refreshKruizeStatus();
             refreshWorkloads();
         });
+
+        let pendingUpdates = [];
+
+        async function applyUpdates() {
+            if (!pendingUpdates || pendingUpdates.length === 0) return;
+            if (!confirm(`Apply ${pendingUpdates.length} updates?`)) return;
+
+            const targets = pendingUpdates.map(u => u.location);
+            try {
+                const res = await fetch('/profiles/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targets: targets })
+                });
+
+                if (res.ok) {
+                    alert("Updates initiated successfully.");
+                    refreshKruizeStatus();
+                } else {
+                    alert("Failed to initiate updates.");
+                }
+            } catch (e) {
+                console.error("Update failed", e);
+                alert("Error during update: " + e);
+            }
+        }
 
         // 1. Fetch Health Status Only
         async function refreshKruizeStatus() {
@@ -286,11 +332,34 @@
                 // Update Status Badge
                 const badge = $('#global-status');
                 badge.text(health.status);
-                if (health.status === 'HEALTHY') {
-                    badge.removeClass('bg-secondary bg-danger').addClass('bg-success');
-                    $('#alerts-container').hide();
+
+                // Handle Pending Updates
+                const updatesContainer = $('#updates-container');
+                if (health.pending_updates && health.pending_updates.length > 0) {
+                    pendingUpdates = health.pending_updates;
+                    updatesContainer.show();
+
+                    const updatesList = $('#updates-list');
+                    updatesList.empty();
+                    health.pending_updates.forEach(u => {
+                        updatesList.append(`<li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><strong>${u.name}</strong> (${u.type}) <span class="badge bg-secondary">${u.currentVersion}</span> <i class="fa-solid fa-arrow-right mx-1"></i> <span class="badge bg-success">${u.targetVersion}</span></span>
+                         </li>`);
+                    });
                 } else {
-                    badge.removeClass('bg-secondary bg-success').addClass('bg-danger');
+                    pendingUpdates = [];
+                    updatesContainer.hide();
+                }
+
+                if (health.status === 'HEALTHY' && pendingUpdates.length === 0) {
+                    badge.removeClass('bg-secondary bg-danger bg-warning').addClass('bg-success');
+                    $('#alerts-container').hide();
+                } else if (pendingUpdates.length > 0) {
+                    badge.removeClass('bg-secondary bg-success bg-danger').addClass('bg-warning').text('UPDATE AVAILABLE');
+                    // We might still have checking issues alongside updates, so handle alerts display logic if needed
+                    // But for now, we assume if updates are pending, status might be degraded or we just want to highlight update
+                } else {
+                    badge.removeClass('bg-secondary bg-success bg-warning').addClass('bg-danger');
 
                     // Show Issues
                     const issuesList = $('#issues-list');
@@ -298,7 +367,7 @@
                     if (health.issues) {
                         health.issues.forEach(issue => {
                             // Use escaped template literal for Qute compatibility
-                            issuesList.append(`<li class="list-group-item text-danger">$\{issue}</li>`);
+                            issuesList.append(`<li class="list-group-item text-danger">${issue}</li>`);
                         });
                     }
                     $('#alerts-container').show();
@@ -308,8 +377,8 @@
 
                 // Render Lists
                 renderList('#datasource-list', health.datasources, (item) => item);
-                renderList('#metadata-profile-list', health.metadata_profiles, (p) => `<strong>$\{p.name}</strong> <span class="badge bg-light text-dark">v$\{p.profile_version}</span>`);
-                renderList('#metric-profile-list', health.metric_profiles, (p) => `<strong>$\{p.name}</strong> <span class="badge bg-light text-dark">v$\{p.profile_version}</span>`);
+                renderList('#metadata-profile-list', health.metadata_profiles, (p) => `<strong>${p.name}</strong> <span class="badge bg-light text-dark">${p.profile_version}</span>`);
+                renderList('#metric-profile-list', health.metric_profiles, (p) => `<strong>${p.name}</strong> <span class="badge bg-light text-dark">${p.profile_version}</span>`);
                 renderList('#layer-list', health.layers, (p) => `<strong>$\{p.name}</strong>`);
                 renderList('#ruleset-list', health.rulesets, (p) => `<strong>$\{p.name}</strong>`);
 
@@ -372,8 +441,28 @@
                 wlTable.clear();
                 // The API returns 'workloads', ensuring we check that property
                 const workloads = scan.workloads || scan.deployments;
+
+                const labelFilter = $('#labelFilter').val().trim();
+
                 if (workloads) {
                     workloads.forEach(w => {
+                        // Label Filtering
+                        let labelsHtml = '';
+                        let hasMatchingLabel = !labelFilter; // If no filter, show all
+
+                        if (w.labels) {
+                            Object.entries(w.labels).forEach(([k, v]) => {
+                                const labelStr = `${k}=${v}`;
+                                labelsHtml += `<span class="badge bg-light text-dark border me-1 mb-1">${labelStr}</span>`;
+
+                                if (labelFilter && labelStr.includes(labelFilter)) {
+                                    hasMatchingLabel = true;
+                                }
+                            });
+                        }
+
+                        if (!hasMatchingLabel) return;
+
                         const optBadge = w.kruizeOptimized
                             ? '<span class="opt-yes">Yes</span>'
                             : '<span class="opt-no">No</span>';
@@ -382,7 +471,7 @@
                         let containersHtml = '<ul class="mb-0 ps-3 small">';
                         if (w.containers) {
                             w.containers.forEach(c => {
-                                containersHtml += `<li><strong>$\{c.name}</strong> <span class="text-muted">($\{c.image})</span></li>`;
+                                containersHtml += `<li><strong>${c.name}</strong> <span class="text-muted">(${c.image})</span></li>`;
                             });
                         }
                         containersHtml += '</ul>';
@@ -392,6 +481,7 @@
                             w.name,
                             w.type || 'Deployment', // Default if missing
                             containersHtml,
+                            labelsHtml, // Labels Column
                             optBadge,
                             '<button class="btn btn-sm btn-outline-secondary">Action 1</button>',
                             '<button class="btn btn-sm btn-outline-primary">Action 2</button>'

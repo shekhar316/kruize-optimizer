@@ -94,4 +94,15 @@ public class HealthCheckResult {
     public void setIssues(List<String> issues) {
         this.issues = issues;
     }
+
+    @JsonProperty("pending_updates")
+    private List<ProfileScanResult.PendingUpdate> pendingUpdates;
+
+    public List<ProfileScanResult.PendingUpdate> getPendingUpdates() {
+        return pendingUpdates;
+    }
+
+    public void setPendingUpdates(List<ProfileScanResult.PendingUpdate> pendingUpdates) {
+        this.pendingUpdates = pendingUpdates;
+    }
 }

@@ -74,6 +74,7 @@ public class KruizeHealthService {
         result.setMetricProfiles(profileResult.getMetricProfiles());
         result.setLayers(profileResult.getLayers());
         result.setRulesets(profileResult.getRulesets());
+        result.setPendingUpdates(profileResult.getPendingUpdates());
 
         // Any remaining alerts from profile scan are issues
         if (profileResult.getAlerts() != null && !profileResult.getAlerts().isEmpty()) {

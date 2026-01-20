@@ -11,10 +11,10 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["namespaces"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "patch", "update"]
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets", "replicasets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -49,7 +49,8 @@ spec:
       serviceAccountName: kruize-optimizer-sa
       containers:
         - name: kruize-optimizer
-          image: quay.io/rh-ee-shesaxen/optimizer:poc_v1
+          image: quay.io/rh-ee-shesaxen/optimizer:test
+          # image: quay.io/rh-ee-shesaxen/optimizer:poc-v2
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -59,17 +60,20 @@ spec:
             - name: KRUIZE_JOB_POLLING_INTERVAL
               value: "1m"
             - name: KRUIZE_URL
-              value: "http://localhost:9000"
+              value: "http://kruize.monitoring.svc.cluster.local:8080"
             - name: KRUIZE_PROFILE_GIT_URL
               value: "local"
             - name: KRUIZE_PROFILE_GIT_BASE_URL
               value: "local"
+            - name: KRUIZE_TARGET_LABEL_LIMIT
+              value: "5"
             # Configure target labels as a JSON object or array
             # Option 1: JSON Object
-            - name: KRUIZE_TARGET_LABELS
-              value: '{"kruize/autotune": "enabled"}'
+            # - name: KRUIZE_TARGET_LABELS
+            #   value: '{"kruize/autotune": "enabled"}'
             # Option 2: JSON Array of "key=value" strings
-            # value: '["kruize/autotune=enabled", "tier=gold"]'
+            - name: KRUIZE_TARGET_LABELS
+              value: '["kruize/autotune=enabled", "tier=gold"]'
 ---
 apiVersion: v1
 kind: Service

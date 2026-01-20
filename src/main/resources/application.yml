@@ -19,13 +19,13 @@ quarkus:
     kruize-api:
       # URL of the Kruize Autotune service
       # In k8s: http://<service-name>.<namespace>:<port>
-      url: ${KRUIZE_URL:http://localhost:9000}
+      url: ${KRUIZE_URL:http://kruize:8080}
 
 # --- Kruize Optimizer Configuration ---
 kruize:
   scan:
     # Frequency to scan K8s for new workloads (cron format or duration)
-    interval: ${KRUIZE_SCAN_INTERVAL:5m}
+    interval: ${KRUIZE_SCAN_INTERVAL:1m}
   job:
     polling:
       # Interval to check bulk job status
@@ -38,5 +38,7 @@ kruize:
       base-url: ${KRUIZE_PROFILE_GIT_BASE_URL:local}
   target:
     labels:
+      # Max number of labels to process
+      limit: ${KRUIZE_TARGET_LABEL_LIMIT:5}
       # Pass labels as a JSON String (Object or Array of "key=value")
-      json: '${KRUIZE_TARGET_LABELS:{"kruize/testshekhar": "enabled"}}'
+      json: '${KRUIZE_TARGET_LABELS:{"kruize/autotune": "enabled"}}'
