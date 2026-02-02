@@ -6,6 +6,7 @@ quarkus:
     path: /openapi
   swagger-ui:
     path: /swagger-ui
+    always-include: ${ENABLE_SWAGGER:true}
 
   # Enable configuration for a production-ready logging environment
   log:
@@ -23,6 +24,36 @@ quarkus:
 
 # --- Kruize Optimizer Configuration ---
 kruize:
+  clusters:
+    - name: "openshift-devhub"
+      url: "https://api.cluster-shk6h.shk6h.sandbox1370.opentlc.com:6443"
+      auth-type: "TOKEN"
+      token: "eyJhbGciOiJSUzI1NiIsImtpZCI6Ii10c2dkSDJ6OUppX0xnMl9TUmh1YnJ5T0RyakN2XzRZckhVZTNBemJQSHMifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MjEzMDAxMDg1NywiaWF0IjoxNzcwMDE0NDU3LCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJqdGkiOiJiZTRhZWUzNi1kYTgyLTQ1OGUtYTY0ZS01NWJjNTZkNjZjYjQiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6Im9wZW5zaGlmdC1jb25maWciLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiY2x1c3Rlci1hZG1pbiIsInVpZCI6ImJmMzZkZDkyLWFmYzQtNDQzOC04YTk0LWYzMDA5NmRlMDI3NSJ9fSwibmJmIjoxNzcwMDE0NDU3LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6b3BlbnNoaWZ0LWNvbmZpZzpjbHVzdGVyLWFkbWluIn0.E2qVIXgXH1K3TRX-Lyb4xBr42VBhVYflDkZ1iQNjiJ6KxQIpZOt0Btvg0PV3wPjMMk9cfgyXZICwSGz7FkqX2IXguN2qG5zeMiRei291y1ng5FKURscKY_e6DGXrUuxf_EqARozPGdcd0JktY0dssdczce9d6PjdtXp0WYvsQbFl7aavrHMVwUxUwOmH6tCKqxXLGVJ0JN34nLgW5wW2PWTPep8Xbn49eamuuldxHQx8b03SRS71JWROadxCHVmVTnc5nW0woGwYyolI_pnmBLIhqo8tGEd33zKW_YELMjzbLSWsyx-U-4Vz58lNOrKGRPCGP20RHz2BjgNn408qlRuuMrPGP2w2j9r_ywJi_NoyvLlIrF5dt1UvNAWKs3o2OSUQ9pOOgVAavuh7qs_K2QktbeKQMM7dngZQWgsM6JXRSQtEqhurl-pijEwyIUoy-T9hDk-9FbwLKzGvfOquVErTE-uiiVsC1D--CPyCSdX-v-Av-x_e-UAfkj_IpTjy8bjsvQfMclkmCP8WuGULRuCdGq-Lk1gG4b0JmnZQiW6FjE3QaWlKdvl122WNmA0ZDUf-FAoUbaIN3Nhct9ZThiSZS8riGjcuL6P4K-nb83AtwFLWpmtUfhMN9L7D_fT6EfKrcK3NmUWO8kL3dB-ruL0T_8dORzOaLEQx_r2F1wk"
+      # Using multiline string for readability and correct formatting
+      ca-cert: |
+        -----BEGIN CERTIFICATE-----
+        MIIDMjCCAhqgAwIBAgIIVtLSNk2GrhgwDQYJKoZIhvcNAQELBQAwNzESMBAGA1UE
+        CxMJb3BlbnNoaWZ0MSEwHwYDVQQDExhrdWJlLWFwaXNlcnZlci1sYi1zaWduZXIw
+        HhcNMjYwMjAyMDU1NTMxWhcNMzYwMTMxMDU1NTMxWjA3MRIwEAYDVQQLEwlvcGVu
+        c2hpZnQxITAfBgNVBAMTGGt1YmUtYXBpc2VydmVyLWxiLXNpZ25lcjCCASIwDQYJ
+        KoZIhvcNAQEBBQADggEPADCCAQoCggEBAL2kbUe74rKnb/bzy/JOm/au46QiDkK5
+        Z/8xTChN8x7MuhToUWDdkYUMWRiqQVYEzPywndlkyWJNBw7qw6FCUe+aJTAPCt5n
+        c2C0+FAg84X2O/EWRv9RdmLAYzXqsO5Wa7Q2iZZGmdcTVfPfEqQfnuSDAbWGmdRg
+        Aah3bseKHUWbzqgXCzWyda+al9INXyv3/6/jO1Z0Je8GVRu4plI4JjWUk26I3n6z
+        2S6yBMlH5K0ZVU1IjNmoEY44/n4rFHSKEeLaoKnjWfURo99GP/jXUSl7Qg0w4A9V
+        JRuEtEs7udlMBAt8YTdl0MQ4OVj9jzZgaNf7+mWp6uGU4MwgaOCmpnkCAwEAAaNC
+        MEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFDfA
+        228ne6qN6EXLk7pdDJvbvOHRMA0GCSqGSIb3DQEBCwUAA4IBAQCGKp1UVpqyFcTF
+        cIGiq2ElqSjnyYUk/IVqPEgrgUpkV6YlHdrvoP/0EDJRSVTTOyO4DWBU0qFG0abx
+        hnxH9pjDJSrc54ObLQbOZPGOdU5px5/oamrUVfcwl1+nf0oPzaYVOpMsMq5ehfWD
+        mS86RUKld4m1HxvA88UtKEk4sV3Tk/9qiMTymGGMTmC6RDz+O9UGtwg1pUz/qNK9
+        xHpBl3g2Y/bj3LnrJ6BT10/26deP3b0aYqme6kUPyeVX7jcVJU/fMoPVjUaZdnlH
+        r+nrDqvr3k8MDAY/prYkbm25TZpCvYzYC5Cnk6/Y1ZVxxAyxiyBbDY92wSz5xe1A
+        PXEVOIF6
+        -----END CERTIFICATE-----
+      datasource: "prometheus-2"
+    - name: "local-kind"
+      datasource: "prometheus-1"
   scan:
     # Frequency to scan K8s for new workloads (cron format or duration)
     interval: ${KRUIZE_SCAN_INTERVAL:1m}

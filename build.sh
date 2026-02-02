@@ -3,7 +3,7 @@ set -e
 
 # Default values
 IMAGE_REGISTRY=${1:-"quay.io/rh-ee-shesaxen"}
-IMAGE_TAG="optimizerPoCDemo"
+IMAGE_TAG="multipleCluster"
 IMAGE_NAME="${IMAGE_REGISTRY}/optimizer:${IMAGE_TAG}"
 
 echo "Building and pushing image: ${IMAGE_NAME}..."

@@ -25,13 +25,15 @@ public class K8sScanResult {
 
     public static class NamespaceInfo {
         private String name;
+        private String clusterName;
         private boolean kruizeOptimized;
 
         public NamespaceInfo() {
         }
 
-        public NamespaceInfo(String name, boolean kruizeOptimized) {
+        public NamespaceInfo(String name, String clusterName, boolean kruizeOptimized) {
             this.name = name;
+            this.clusterName = clusterName;
             this.kruizeOptimized = kruizeOptimized;
         }
 
@@ -41,6 +43,14 @@ public class K8sScanResult {
 
         public void setName(String name) {
             this.name = name;
+        }
+
+        public String getClusterName() {
+            return clusterName;
+        }
+
+        public void setClusterName(String clusterName) {
+            this.clusterName = clusterName;
         }
 
         public boolean isKruizeOptimized() {
@@ -55,6 +65,7 @@ public class K8sScanResult {
     public static class WorkloadInfo {
         private String name;
         private String namespace;
+        private String clusterName;
         private String type; // Deployment, StatefulSet, ReplicaSet
         private boolean kruizeOptimized;
         private List<ContainerInfo> containers = new ArrayList<>();
@@ -63,10 +74,11 @@ public class K8sScanResult {
         public WorkloadInfo() {
         }
 
-        public WorkloadInfo(String name, String namespace, String type, boolean kruizeOptimized,
+        public WorkloadInfo(String name, String namespace, String clusterName, String type, boolean kruizeOptimized,
                 List<ContainerInfo> containers, java.util.Map<String, String> labels) {
             this.name = name;
             this.namespace = namespace;
+            this.clusterName = clusterName;
             this.type = type;
             this.kruizeOptimized = kruizeOptimized;
             this.containers = containers;
@@ -87,6 +99,14 @@ public class K8sScanResult {
 
         public void setNamespace(String namespace) {
             this.namespace = namespace;
+        }
+
+        public String getClusterName() {
+            return clusterName;
+        }
+
+        public void setClusterName(String clusterName) {
+            this.clusterName = clusterName;
         }
 
         public String getType() {

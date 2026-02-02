@@ -30,32 +30,61 @@ public class K8sScanResource {
         @Inject
         com.kruize.optimizer.config.TargetLabelConfig targetLabelConfig;
 
+        @Inject
+        com.kruize.optimizer.config.KruizeClusterConfig clusterConfig;
+
         @GET
         @Produces(MediaType.APPLICATION_JSON)
         public K8sScanResult scan(@QueryParam("all") boolean all) {
+                K8sScanResult finalResult = new K8sScanResult();
+                finalResult.setNamespaces(new ArrayList<>());
+                finalResult.setWorkloads(new ArrayList<>());
+
+                // Check if multiple clusters are configured
+                if (clusterConfig.clusters().isPresent() && !clusterConfig.clusters().get().isEmpty()) {
+                        for (com.kruize.optimizer.config.KruizeClusterConfig.Cluster cluster : clusterConfig.clusters()
+                                        .get()) {
+                                try (KubernetesClient kClient = createClient(cluster)) {
+                                        K8sScanResult clusterResult = scanCluster(kClient, cluster.name(), all);
+                                        finalResult.getNamespaces().addAll(clusterResult.getNamespaces());
+                                        finalResult.getWorkloads().addAll(clusterResult.getWorkloads());
+                                } catch (Exception e) {
+                                        e.printStackTrace();
+                                        // Log error but continue with other clusters
+                                }
+                        }
+                } else {
+                        // Fallback to default local client
+                        K8sScanResult clusterResult = scanCluster(client, "local", all);
+                        finalResult.setNamespaces(clusterResult.getNamespaces());
+                        finalResult.setWorkloads(clusterResult.getWorkloads());
+                }
+
+                return finalResult;
+        }
+
+        private K8sScanResult scanCluster(KubernetesClient kClient, String clusterName, boolean all) {
                 K8sScanResult result = new K8sScanResult();
+                List<K8sScanResult.NamespaceInfo> nsResult = new ArrayList<>();
+                List<K8sScanResult.WorkloadInfo> allWorkloads = new ArrayList<>();
 
                 // 1. Scan Namespaces
-                List<Namespace> namespaces = client.namespaces().list().getItems();
+                List<Namespace> namespaces = kClient.namespaces().list().getItems();
 
                 // Create a map for quick lookup of optimized namespaces
                 Map<String, Boolean> namespaceOptimizedMap = new HashMap<>();
 
-                List<K8sScanResult.NamespaceInfo> nsResult = namespaces.stream()
-                                .map(ns -> {
-                                        boolean isOptimized = checkLabel(ns.getMetadata().getLabels());
-                                        namespaceOptimizedMap.put(ns.getMetadata().getName(), isOptimized);
-                                        return new K8sScanResult.NamespaceInfo(ns.getMetadata().getName(), isOptimized);
-                                })
-                                .filter(ns -> all || ns.isKruizeOptimized())
-                                .collect(Collectors.toList());
-
-                result.setNamespaces(nsResult);
-
-                List<K8sScanResult.WorkloadInfo> allWorkloads = new ArrayList<>();
+                namespaces.forEach(ns -> {
+                        boolean isOptimized = checkLabel(ns.getMetadata().getLabels());
+                        namespaceOptimizedMap.put(ns.getMetadata().getName(), isOptimized);
+                        if (all || isOptimized) {
+                                nsResult.add(new K8sScanResult.NamespaceInfo(ns.getMetadata().getName(), clusterName,
+                                                isOptimized));
+                        }
+                });
 
                 // 2. Scan Deployments
-                List<Deployment> deployments = client.apps().deployments().inAnyNamespace().list().getItems();
+                List<Deployment> deployments = kClient.apps().deployments().inAnyNamespace().list().getItems();
                 for (Deployment d : deployments) {
                         boolean isNamespaceOptimized = namespaceOptimizedMap
                                         .getOrDefault(d.getMetadata().getNamespace(), false);
@@ -72,6 +101,7 @@ public class K8sScanResource {
                                 allWorkloads.add(new K8sScanResult.WorkloadInfo(
                                                 d.getMetadata().getName(),
                                                 d.getMetadata().getNamespace(),
+                                                clusterName,
                                                 "Deployment",
                                                 isOptimized,
                                                 containers,
@@ -80,7 +110,7 @@ public class K8sScanResource {
                 }
 
                 // 3. Scan StatefulSets
-                List<StatefulSet> statefulSets = client.apps().statefulSets().inAnyNamespace().list().getItems();
+                List<StatefulSet> statefulSets = kClient.apps().statefulSets().inAnyNamespace().list().getItems();
                 for (StatefulSet s : statefulSets) {
                         boolean isNamespaceOptimized = namespaceOptimizedMap
                                         .getOrDefault(s.getMetadata().getNamespace(), false);
@@ -97,6 +127,7 @@ public class K8sScanResource {
                                 allWorkloads.add(new K8sScanResult.WorkloadInfo(
                                                 s.getMetadata().getName(),
                                                 s.getMetadata().getNamespace(),
+                                                clusterName,
                                                 "StatefulSet",
                                                 isOptimized,
                                                 containers,
@@ -105,7 +136,7 @@ public class K8sScanResource {
                 }
 
                 // 4. Scan ReplicaSets
-                List<ReplicaSet> replicaSets = client.apps().replicaSets().inAnyNamespace().list().getItems();
+                List<ReplicaSet> replicaSets = kClient.apps().replicaSets().inAnyNamespace().list().getItems();
                 for (ReplicaSet r : replicaSets) {
                         boolean isNamespaceOptimized = namespaceOptimizedMap
                                         .getOrDefault(r.getMetadata().getNamespace(), false);
@@ -122,6 +153,7 @@ public class K8sScanResource {
                                 allWorkloads.add(new K8sScanResult.WorkloadInfo(
                                                 r.getMetadata().getName(),
                                                 r.getMetadata().getNamespace(),
+                                                clusterName,
                                                 "ReplicaSet",
                                                 isOptimized,
                                                 containers,
@@ -129,9 +161,24 @@ public class K8sScanResource {
                         }
                 }
 
+                result.setNamespaces(nsResult);
                 result.setWorkloads(allWorkloads);
-
                 return result;
+        }
+
+        private KubernetesClient createClient(com.kruize.optimizer.config.KruizeClusterConfig.Cluster cluster) {
+                io.fabric8.kubernetes.client.ConfigBuilder configBuilder = new io.fabric8.kubernetes.client.ConfigBuilder();
+
+                cluster.url().ifPresent(configBuilder::withMasterUrl);
+
+                if (cluster.authType().isPresent() && "TOKEN".equalsIgnoreCase(cluster.authType().get())) {
+                        cluster.token().ifPresent(configBuilder::withOauthToken);
+                }
+
+                cluster.caCert().ifPresent(configBuilder::withCaCertData);
+
+                return new io.fabric8.kubernetes.client.KubernetesClientBuilder().withConfig(configBuilder.build())
+                                .build();
         }
 
         @POST

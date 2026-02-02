@@ -49,7 +49,7 @@ spec:
       serviceAccountName: kruize-optimizer-sa
       containers:
         - name: kruize-optimizer
-          image: quay.io/rh-ee-shesaxen/optimizer:test
+          image: quay.io/rh-ee-shesaxen/optimizer:multipleCluster
           # image: quay.io/rh-ee-shesaxen/optimizer:poc-v2
           imagePullPolicy: Always
           ports:

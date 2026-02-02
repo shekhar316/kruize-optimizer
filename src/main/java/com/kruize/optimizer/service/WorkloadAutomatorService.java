@@ -16,6 +16,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.util.*;
+import com.kruize.optimizer.config.KruizeClusterConfig;
 
 @ApplicationScoped
 public class WorkloadAutomatorService {
@@ -56,18 +57,52 @@ public class WorkloadAutomatorService {
     @org.eclipse.microprofile.config.inject.ConfigProperty(name = "kruize.webhook.url", defaultValue = "http://localhost:8080/webhook")
     String webhookUrl;
 
+    @Inject
+    KruizeClusterConfig clusterConfig;
+
     @Scheduled(every = "${kruize.scan.interval:5m}")
     public void scanAndRegisterWorkloads() {
         LOG.info("Starting scheduled workload scan...");
 
-        // Ensure profiles are installed
+        // Ensure profiles are installed (locally)
         try {
             profileInstallerService.checkAndInstallProfiles();
         } catch (Exception e) {
             LOG.error("Failed to check/install profiles: " + e.getMessage());
         }
 
-        // Collect optimized workloads
+        // Check if multiple clusters are configured
+        if (clusterConfig.clusters().isPresent() && !clusterConfig.clusters().get().isEmpty()) {
+            for (KruizeClusterConfig.Cluster cluster : clusterConfig.clusters().get()) {
+                LOG.infof("Processing cluster: %s", cluster.name());
+                try (KubernetesClient kClient = createClient(cluster)) {
+                    scanAndRegister(kClient, cluster.name(), cluster.datasource());
+                } catch (Exception e) {
+                    LOG.errorf("Failed to process cluster %s: %s", cluster.name(), e.getMessage());
+                }
+            }
+        } else {
+            // Fallback to default local client
+            LOG.info("No external clusters configured. Using default local client.");
+            scanAndRegister(client, "local", "prometheus-1");
+        }
+    }
+
+    private KubernetesClient createClient(KruizeClusterConfig.Cluster cluster) {
+        io.fabric8.kubernetes.client.ConfigBuilder configBuilder = new io.fabric8.kubernetes.client.ConfigBuilder();
+
+        cluster.url().ifPresent(configBuilder::withMasterUrl);
+
+        if (cluster.authType().isPresent() && "TOKEN".equalsIgnoreCase(cluster.authType().get())) {
+            cluster.token().ifPresent(configBuilder::withOauthToken);
+        }
+
+        cluster.caCert().ifPresent(configBuilder::withCaCertData);
+
+        return new io.fabric8.kubernetes.client.KubernetesClientBuilder().withConfig(configBuilder.build()).build();
+    }
+
+    private void scanAndRegister(KubernetesClient kClient, String clusterName, String datasource) {
         Set<String> namespaces = new HashSet<>();
         Set<String> workloadNames = new HashSet<>();
 
@@ -77,39 +112,37 @@ public class WorkloadAutomatorService {
                 String labelKey = entry.getKey();
                 String labelValue = entry.getValue();
 
-                LOG.debugf("Scanning for label: %s=%s", labelKey, labelValue);
-
-                LOG.debugf("Scanning for label: %s=%s", labelKey, labelValue);
+                LOG.debugf("[%s] Scanning for label: %s=%s", clusterName, labelKey, labelValue);
 
                 // 1. Scan Namespaces with the label
-                List<Namespace> labeledNamespaces = client.namespaces().withLabel(labelKey, labelValue).list()
+                List<Namespace> labeledNamespaces = kClient.namespaces().withLabel(labelKey, labelValue).list()
                         .getItems();
                 for (Namespace ns : labeledNamespaces) {
                     String nsName = ns.getMetadata().getName();
-                    LOG.debugf("Found labeled namespace: %s", nsName);
+                    LOG.debugf("[%s] Found labeled namespace: %s", clusterName, nsName);
 
                     // Add all Deployments in this namespace
-                    client.apps().deployments().inNamespace(nsName).list().getItems().forEach(d -> {
+                    kClient.apps().deployments().inNamespace(nsName).list().getItems().forEach(d -> {
                         namespaces.add(d.getMetadata().getNamespace());
                         workloadNames.add(d.getMetadata().getName());
                     });
 
                     // Add all StatefulSets in this namespace
-                    client.apps().statefulSets().inNamespace(nsName).list().getItems().forEach(s -> {
+                    kClient.apps().statefulSets().inNamespace(nsName).list().getItems().forEach(s -> {
                         namespaces.add(s.getMetadata().getNamespace());
                         workloadNames.add(s.getMetadata().getName());
                     });
 
                     // Add all ReplicaSets in this namespace
-                    client.apps().replicaSets().inNamespace(nsName).list().getItems().forEach(r -> {
+                    kClient.apps().replicaSets().inNamespace(nsName).list().getItems().forEach(r -> {
                         namespaces.add(r.getMetadata().getNamespace());
                         workloadNames.add(r.getMetadata().getName());
                     });
                 }
 
-                // 2. Scan Workloads explicitly labeled (legacy behavior + mixed scenarios)
+                // 2. Scan Workloads explicitly labeled
                 // Deployments
-                List<Deployment> deploymentList = client.apps().deployments().inAnyNamespace()
+                List<Deployment> deploymentList = kClient.apps().deployments().inAnyNamespace()
                         .withLabel(labelKey, labelValue).list().getItems();
                 deploymentList.forEach(d -> {
                     namespaces.add(d.getMetadata().getNamespace());
@@ -117,7 +150,7 @@ public class WorkloadAutomatorService {
                 });
 
                 // StatefulSets
-                List<StatefulSet> statefulSetList = client.apps().statefulSets().inAnyNamespace()
+                List<StatefulSet> statefulSetList = kClient.apps().statefulSets().inAnyNamespace()
                         .withLabel(labelKey, labelValue).list().getItems();
                 statefulSetList.forEach(s -> {
                     namespaces.add(s.getMetadata().getNamespace());
@@ -125,7 +158,7 @@ public class WorkloadAutomatorService {
                 });
 
                 // ReplicaSets
-                List<ReplicaSet> replicaSetList = client.apps().replicaSets().inAnyNamespace()
+                List<ReplicaSet> replicaSetList = kClient.apps().replicaSets().inAnyNamespace()
                         .withLabel(labelKey, labelValue).list().getItems();
                 replicaSetList.forEach(r -> {
                     namespaces.add(r.getMetadata().getNamespace());
@@ -133,16 +166,17 @@ public class WorkloadAutomatorService {
                 });
             }
         } catch (Exception e) {
-            LOG.error("Error scanning Kubernetes resources: " + e.getMessage());
+            LOG.errorf("[%s] Error scanning Kubernetes resources: %s", clusterName, e.getMessage());
             return;
         }
 
         if (workloadNames.isEmpty()) {
-            LOG.info("No optimized workloads found.");
+            LOG.infof("[%s] No optimized workloads found.", clusterName);
             return;
         }
 
-        LOG.infof("Found %d optimized workloads in %d namespaces. Initiating bulk creation...", workloadNames.size(),
+        LOG.infof("[%s] Found %d optimized workloads in %d namespaces. Initiating bulk creation...", clusterName,
+                workloadNames.size(),
                 namespaces.size());
 
         try {
@@ -157,7 +191,8 @@ public class WorkloadAutomatorService {
             filter.put("include", include);
 
             payload.put("filter", filter);
-            payload.put("datasource", "prometheus-1"); // Hardcoded as per prompt
+            payload.put("datasource", datasource);
+            payload.put("cluster_name", clusterName);
             payload.put("metadata_profile", "cluster-metadata-local-monitoring");
             payload.put("measurement_duration", "15min");
 
@@ -168,15 +203,11 @@ public class WorkloadAutomatorService {
             }
 
             String response = kruizeClient.bulkCreateExperiments(payload);
-            LOG.infof("Bulk API Response: %s", response);
+            LOG.infof("[%s] Bulk API Response: %s", clusterName, response);
 
             totalJobsCreated.increment();
-            // Count will be updated upon completion
-
-            // Parse Job ID and Poll
-            // Count will be updated upon completion or via webhook
         } catch (Exception e) {
-            LOG.error("Failed to call Bulk API", e);
+            LOG.errorf("[%s] Failed to call Bulk API", clusterName, e);
         }
     }
 
